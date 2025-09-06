@@ -1,9 +1,10 @@
 import asyncio
 from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as MediaManager
+from winsdk.windows.storage.streams import DataReader, InputStreamOptions
 import json
 import websockets
 import socket
-
+import base64
 
 async def get_media_info():
     try:
@@ -46,6 +47,34 @@ async def get_media_info():
 
 def is_media_playing():
     return asyncio.run(get_media_info())
+
+async def get_thumbnail():
+    try:
+        sessions = await MediaManager.request_async()
+        current_session = sessions.get_current_session()
+        
+        if not current_session:
+            return None
+        
+        media_props = await current_session.try_get_media_properties_async()
+        thumbnail = await media_props.thumbnail.open_read_async()
+        data_reader = DataReader(thumbnail)
+        data_reader.input_stream_options = InputStreamOptions.READ_AHEAD
+
+        buffer_size = thumbnail.size
+        buffer = await data_reader.load_async(int(buffer_size))
+        thumbnail_bytes = bytearray(buffer_size)
+        data_reader.read_bytes(thumbnail_bytes)
+
+        data_reader.close()
+        thumbnail.close()
+        
+        thumbnail_base64 = base64.b64encode(thumbnail_bytes).decode('utf-8')
+        
+        return thumbnail_base64
+    except Exception as e:
+        print(f"Error fetching thumbnail: {e}")
+        return None
 
 async def toggle_media():
     try:
@@ -115,6 +144,9 @@ async def handle_client(websocket):
                     case "get_media":
                         media_info = await get_media_info()
                         await websocket.send(json.dumps(media_info))
+                    case "get_thumbnail":
+                        thumbnail = await get_thumbnail()
+                        await websocket.send(thumbnail)
                     case "toggle_playback":
                         result = await toggle_media()
                         await websocket.send(json.dumps(result))       

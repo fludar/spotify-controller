@@ -1,7 +1,11 @@
 package com.petronel.spotifycontroller
 
 import android.annotation.SuppressLint
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.util.Base64
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -12,7 +16,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,26 +27,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.petronel.spotifycontroller.ui.theme.SpotifyTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-
 
 @Composable
 fun SongProgressIndicator(mediaInfo: MediaInfo, modifier: Modifier = Modifier) {
     
     var currentProgress by remember { mutableFloatStateOf(0f) }
-
-    
     
     LaunchedEffect(mediaInfo.position, mediaInfo.isPlaying, mediaInfo.duration) {
         val startTime = System.currentTimeMillis()
@@ -81,6 +85,33 @@ fun SongProgressIndicator(mediaInfo: MediaInfo, modifier: Modifier = Modifier) {
     )
 }
 
+@Composable
+fun AlbumArt(base64String: String?, modifier: Modifier = Modifier) {
+    val imageBitmap by remember(base64String) {
+        mutableStateOf(
+            if (base64String != null) {
+                try {
+                    val imageBytes = Base64.decode(base64String, Base64.DEFAULT)
+                    BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                } catch (e: Exception) {
+                    Log.e("AlbumArt", "Failed to decode Base64 string", e)
+                    null
+                }
+            } else {
+                null
+            }
+        )
+    }
+
+    AsyncImage(
+        model = imageBitmap,
+        contentDescription = "Album Art",
+        modifier = modifier
+            .size(300.dp)
+            .clip(RoundedCornerShape(12.dp)),
+        contentScale = ContentScale.Crop
+    )
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,6 +122,13 @@ class MainActivity : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
 
                     val mediaInfo by WebSocketClient.mediaInfo.collectAsStateWithLifecycle()
+                    val albumArtBase64 by WebSocketClient.albumArt.collectAsStateWithLifecycle()
+                    LaunchedEffect(mediaInfo.title) {
+                        if (mediaInfo.isPlaying && mediaInfo.title != "Nothing Playing") {
+                            Log.d("MainActivity", "Title changed to '${mediaInfo.title}'. CALLING the ask function.")
+                            WebSocketClient.requestAlbumArt()
+                        }
+                    }
                     Column(
                         modifier = Modifier
                             .padding(innerPadding)
@@ -103,7 +141,10 @@ class MainActivity : ComponentActivity() {
                             WebSocketClient.connect("ws://192.168.5.8:8765")
 
                         }
-
+                        AlbumArt(
+                            base64String = albumArtBase64,
+                            modifier = Modifier.padding(bottom = 30.dp)
+                        )
                         SongInfo(mediaInfo = mediaInfo, modifier = Modifier.padding(bottom = 30.dp))
 
                         Row(
@@ -187,7 +228,9 @@ fun SongInfo(mediaInfo: MediaInfo, modifier: Modifier = Modifier) {
 
         
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 30.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 30.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(text = mediaInfo.position_formatted, fontSize = 12.sp)

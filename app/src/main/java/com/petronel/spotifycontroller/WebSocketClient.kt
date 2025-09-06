@@ -9,6 +9,7 @@ import kotlinx.coroutines.NonCancellable.isActive
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -27,6 +28,9 @@ object WebSocketClient {
 
     private val _mediaInfo = MutableStateFlow(MediaInfo())
     val mediaInfo = _mediaInfo.asStateFlow()
+
+    private val _albumArt = MutableStateFlow<String?>(null)
+    val albumArt: StateFlow<String?> = _albumArt
 
     private val clientScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var pollingJob: Job? = null
@@ -51,6 +55,8 @@ object WebSocketClient {
                     _mediaInfo.value = newMediaInfo
                 } catch (e: Exception) {
                     Log.e("WebSocket", "Error parsing JSON: ${e.message}")
+                    Log.d("WebSocket", "Received maybe a base64 image")
+                    _albumArt.value = text
                 }
             }
             override fun onClosing(ws: WebSocket, code: Int, reason: String) {
@@ -68,6 +74,10 @@ object WebSocketClient {
         client.newWebSocket(request, listener)
     }
 
+    fun requestAlbumArt() {
+        Log.d("WebSocket", "Sending command: get_thumbnail")
+        send("get_thumbnail")
+    }
 
     private fun startPolling() {
         
