@@ -10,6 +10,8 @@ data class MediaInfo(
     val title: String = "Nothing Playing",
     val artist: String = "---",
     val app: String = "Spotify",
+    val position: Int = 0,
+    val duration: Int = 0,
     val position_formatted: String = "0:00",
     val duration_formatted: String = "0:00",
     val progress_percent: Float = 0f
