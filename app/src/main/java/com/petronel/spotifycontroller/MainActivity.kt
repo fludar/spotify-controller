@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -186,7 +187,7 @@ fun SongInfo(mediaInfo: MediaInfo, modifier: Modifier = Modifier) {
 
         
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 30.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(text = mediaInfo.position_formatted, fontSize = 12.sp)
