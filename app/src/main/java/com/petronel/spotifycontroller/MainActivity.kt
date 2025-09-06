@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.petronel.spotifycontroller.ui.theme.SpotifyTheme
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 
 class MainActivity : ComponentActivity() {
@@ -36,6 +37,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             SpotifyTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+
+                    val mediaInfo by WebSocketClient.mediaInfo.collectAsStateWithLifecycle()
                     Column(
                         modifier = Modifier
                             .padding(innerPadding)
@@ -46,6 +49,7 @@ class MainActivity : ComponentActivity() {
 
                         LaunchedEffect(Unit) {
                             WebSocketClient.connect("ws://192.168.5.8:8765")
+
                         }
 
                         Row(
@@ -53,9 +57,9 @@ class MainActivity : ComponentActivity() {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            SkipButton(symbol = "≪") { /* TODO: Skip Back Logic */ }
-                            PlayButton(modifier = Modifier.padding(bottom = 30.dp)) { WebSocketClient.send("toggle_playback") }
-                            SkipButton(symbol = "≫") { /* TODO: Skip Forward Logic */ }
+                            SkipButton(symbol = "≪") { WebSocketClient.send("prev") }
+                            PlayButton(modifier = Modifier.padding(bottom = 30.dp), isPlaying = mediaInfo.isPlaying) { WebSocketClient.send("toggle_playback") }
+                            SkipButton(symbol = "≫") { WebSocketClient.send("next") }
                         }
                     }
                 }
@@ -65,15 +69,14 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun PlayButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
-    var isPlaying by remember { mutableStateOf(false) }
+fun PlayButton(modifier: Modifier = Modifier, isPlaying: Boolean, onClick: () -> Unit) {
 
     val textFontSize = 70.sp
     val buttonSize = 100.dp
     val buttonText = if (isPlaying) "∥" else "►"
 
     Button(
-        onClick = { isPlaying = !isPlaying
+        onClick = {
                     onClick()
                   },
         modifier = modifier.size(buttonSize),
