@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,7 +34,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             SpotifyTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    // Replace Greeting with your Button Composable
                     Column(
                         modifier = Modifier
                             .padding(innerPadding)
@@ -41,7 +41,15 @@ class MainActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.Bottom,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        PlayButton(modifier = Modifier.padding(bottom = 30.dp))
+                        Row(
+                            modifier = Modifier.padding(bottom = 30.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            SkipButton(symbol = "≪") { /* TODO: Skip Back Logic */ }
+                            PlayButton(modifier = Modifier.padding(bottom = 30.dp))
+                            SkipButton(symbol = "≫") { /* TODO: Skip Forward Logic */ }
+                        }
                     }
                 }
             }
@@ -64,5 +72,22 @@ fun PlayButton(modifier: Modifier = Modifier) {
     ) {
         Text(text = buttonText , fontSize = textFontSize, fontFamily = FontFamily.Serif, textAlign = TextAlign.Center,
             modifier = Modifier.align(Alignment.CenterVertically))
+    }
+}
+
+@Composable
+fun SkipButton(modifier: Modifier = Modifier, symbol: String, onClick: () -> Unit) {
+    val buttonSize = 70.dp
+    val textFontSize = 30.sp
+
+
+    Button(
+        onClick = onClick,
+        modifier = modifier.size(buttonSize),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Text(text = symbol, fontSize = textFontSize, fontFamily = FontFamily.Serif, textAlign = TextAlign.Center,
+            modifier = Modifier.align(Alignment.CenterVertically))
+
     }
 }
