@@ -4,13 +4,26 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.petronel.spotifycontroller.ui.theme.SpotifyTheme
 
 class MainActivity : ComponentActivity() {
@@ -20,10 +33,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             SpotifyTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                    // Replace Greeting with your Button Composable
+                    Column(
+                        modifier = Modifier
+                            .padding(innerPadding)
+                            .fillMaxSize(),
+                        verticalArrangement = Arrangement.Bottom,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        PlayButton(modifier = Modifier.padding(bottom = 30.dp))
+                    }
                 }
             }
         }
@@ -31,17 +50,19 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
+fun PlayButton(modifier: Modifier = Modifier) {
+    var isPlaying by remember { mutableStateOf(false) }
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    SpotifyTheme {
-        Greeting("Android")
+    val textFontSize = 70.sp
+    val buttonSize = 100.dp
+    val buttonText = if (isPlaying) "∥" else "►"
+
+    Button(
+        onClick = { isPlaying = !isPlaying },
+        modifier = modifier.size(buttonSize),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Text(text = buttonText , fontSize = textFontSize, fontFamily = FontFamily.Serif, textAlign = TextAlign.Center,
+            modifier = Modifier.align(Alignment.CenterVertically))
     }
 }
