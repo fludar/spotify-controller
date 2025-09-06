@@ -2,6 +2,7 @@ import asyncio
 from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as MediaManager
 import json
 import websockets
+import socket
 
 
 async def get_media_info():
@@ -34,19 +35,58 @@ async def get_media_info():
 def is_media_playing():
     return asyncio.run(get_media_info())
 
+async def toggle_media():
+    try:
+        sessions = await MediaManager.request_async()
+        current_session = sessions.get_current_session()
+        
+        if not current_session:
+            return {"success": False, "message": "No active media session found"}
+        
+        playback_info = current_session.get_playback_info()
+        is_playing = playback_info.playback_status == 4  # 4 = Playing
+        
+        if is_playing:
+            success = await current_session.try_pause_async()
+            if success:
+                return {"success": True, "message": "Media paused successfully"}
+            else:
+                return {"success": False, "message": "Failed to pause media"}
+        else:
+            success = await current_session.try_play_async()
+            if success:
+                return {"success": True, "message": "Media resumed successfully"}
+            else:
+                return {"success": False, "message": "Failed to resume media"}
+    except Exception as e:
+        print(f"Error toggling media: {e}")
+        return {"success": False, "message": f"Error: {str(e)}"}
+
+
 async def handle_client(websocket):
     try:
-            async for message in websocket:
-                if message == "get_media":
-                    media_info = await get_media_info()
-                    await websocket.send(json.dumps(media_info))
-                else:
-                    await websocket.send(json.dumps({"error": "Unknown command"}))
+        async for message in websocket:
+            match message:
+                    case "get_media":
+                        media_info = await get_media_info()
+                        await websocket.send(json.dumps(media_info))
+                    case "toggle_playback":
+                        result = await toggle_media()
+                        await websocket.send(json.dumps(result))        
+                    case _:  # Default case
+                        await websocket.send(json.dumps({"error": "Unknown command"}))
     except websockets.exceptions.ConnectionClosed:
         pass
 
-async def start_websocket_server(host="localhost", port=8765):
-    """Start a WebSocket server that sends current media playing info when requested."""
+def get_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    finally:
+        s.close()
+
+async def start_websocket_server(host=get_ip(), port=8765):
     server = await websockets.serve(handle_client, host, port)
     print(f"WebSocket server started at ws://{host}:{port}")
     await server.wait_closed()
@@ -54,6 +94,6 @@ async def start_websocket_server(host="localhost", port=8765):
 if __name__ == "__main__":
     import sys
     
-    # Run as WebSocket server
+
     print("Starting WebSocket server...")
     asyncio.run(start_websocket_server())

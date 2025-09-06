@@ -26,6 +26,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.petronel.spotifycontroller.ui.theme.SpotifyTheme
+import androidx.compose.runtime.LaunchedEffect
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,13 +43,18 @@ class MainActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.Bottom,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+
+                        LaunchedEffect(Unit) {
+                            WebSocketClient.connect("ws://192.168.5.8:8765")
+                        }
+
                         Row(
                             modifier = Modifier.padding(bottom = 30.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             SkipButton(symbol = "≪") { /* TODO: Skip Back Logic */ }
-                            PlayButton(modifier = Modifier.padding(bottom = 30.dp))
+                            PlayButton(modifier = Modifier.padding(bottom = 30.dp)) { WebSocketClient.send("toggle_playback") }
                             SkipButton(symbol = "≫") { /* TODO: Skip Forward Logic */ }
                         }
                     }
@@ -58,7 +65,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun PlayButton(modifier: Modifier = Modifier) {
+fun PlayButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
     var isPlaying by remember { mutableStateOf(false) }
 
     val textFontSize = 70.sp
@@ -66,7 +73,9 @@ fun PlayButton(modifier: Modifier = Modifier) {
     val buttonText = if (isPlaying) "∥" else "►"
 
     Button(
-        onClick = { isPlaying = !isPlaying },
+        onClick = { isPlaying = !isPlaying
+                    onClick()
+                  },
         modifier = modifier.size(buttonSize),
         shape = RoundedCornerShape(20.dp)
     ) {
