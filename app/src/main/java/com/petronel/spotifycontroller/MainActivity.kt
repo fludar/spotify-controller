@@ -14,13 +14,17 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -120,41 +125,91 @@ class MainActivity : ComponentActivity() {
         setContent {
             SpotifyTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-
+                    
+                    var ipAddress by remember { mutableStateOf("") }
+                    val isConnected by WebSocketClient.isConnected.collectAsStateWithLifecycle()
                     val mediaInfo by WebSocketClient.mediaInfo.collectAsStateWithLifecycle()
                     val albumArtBase64 by WebSocketClient.albumArt.collectAsStateWithLifecycle()
+
                     LaunchedEffect(mediaInfo.title) {
-                        if (mediaInfo.isPlaying && mediaInfo.title != "Nothing Playing") {
-                            Log.d("MainActivity", "Title changed to '${mediaInfo.title}'. CALLING the ask function.")
+                        
+                        if (isConnected && mediaInfo.isPlaying && mediaInfo.title != "Nothing Playing") {
+                            Log.d("MainActivity", "New song detected: '${mediaInfo.title}'. Requesting thumbnail.")
                             WebSocketClient.requestAlbumArt()
                         }
                     }
+
                     Column(
                         modifier = Modifier
                             .padding(innerPadding)
                             .fillMaxSize(),
-                        verticalArrangement = Arrangement.Bottom,
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally 
+                        
                     ) {
-
-                        LaunchedEffect(Unit) {
-                            WebSocketClient.connect("ws://192.168.5.8:8765")
-
-                        }
-                        AlbumArt(
-                            base64String = albumArtBase64,
-                            modifier = Modifier.padding(bottom = 30.dp)
-                        )
-                        SongInfo(mediaInfo = mediaInfo, modifier = Modifier.padding(bottom = 30.dp))
-
+                        
                         Row(
-                            modifier = Modifier.padding(bottom = 30.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            SkipButton(symbol = "≪") { WebSocketClient.send("prev") }
-                            PlayButton(modifier = Modifier.padding(bottom = 30.dp), isPlaying = mediaInfo.isPlaying) { WebSocketClient.send("toggle_playback") }
-                            SkipButton(symbol = "≫") { WebSocketClient.send("next") }
+                            OutlinedTextField(
+                                value = ipAddress,
+                                onValueChange = { ipAddress = it },
+                                label = { Text("PC IP Address") },
+                                modifier = Modifier.weight(1f), 
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                enabled = !isConnected 
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            if (!isConnected) {
+                                Button(onClick = {
+                                    val wsUrl = "ws://$ipAddress:8765" 
+                                    WebSocketClient.connect(wsUrl) 
+                                }, enabled = ipAddress.isNotBlank()) { 
+                                    Text("Connect")
+                                }
+                            } else {
+                                Button(onClick = { WebSocketClient.disconnect() }) {
+                                    Text("Disconnect")
+                                }
+                            }
+                        }
+                        
+
+                        
+                        
+                        Column(
+                            modifier = Modifier.fillMaxSize(), 
+                            verticalArrangement = Arrangement.Bottom,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            
+                            if (!isConnected) {
+                                Text(
+                                    text = "Not Connected to PC",
+                                    fontSize = 20.sp,
+                                    modifier = Modifier.padding(bottom = 100.dp) 
+                                )
+                            } else {
+                                AlbumArt(
+                                    base64String = albumArtBase64,
+                                    modifier = Modifier.padding(bottom = 30.dp)
+                                )
+                                SongInfo(mediaInfo = mediaInfo, modifier = Modifier.padding(bottom = 30.dp))
+
+                                Row(
+                                    modifier = Modifier.padding(bottom = 30.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    
+                                    SkipButton(symbol = "≪") { WebSocketClient.send("prev") }
+                                    PlayButton(isPlaying = mediaInfo.isPlaying) { WebSocketClient.send("toggle_playback") }
+                                    SkipButton(symbol = "≫") { WebSocketClient.send("next") }
+                                }
+                            }
                         }
                     }
                 }

@@ -146,7 +146,10 @@ async def handle_client(websocket):
                         await websocket.send(json.dumps(media_info))
                     case "get_thumbnail":
                         thumbnail = await get_thumbnail()
-                        await websocket.send(thumbnail)
+                        if thumbnail is None:
+                            await websocket.send("")
+                        else:
+                            await websocket.send(thumbnail)
                     case "toggle_playback":
                         result = await toggle_media()
                         await websocket.send(json.dumps(result))       
