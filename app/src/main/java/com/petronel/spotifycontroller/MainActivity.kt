@@ -1,6 +1,7 @@
 package com.petronel.spotifycontroller
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
@@ -38,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -48,6 +50,9 @@ import coil.compose.AsyncImage
 import com.petronel.spotifycontroller.ui.theme.SpotifyTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+
+const val PREFS_NAME = "SpotifyControllerPrefs"
+const val KEY_LAST_IP = "last_ip_address"
 
 @Composable
 fun SongProgressIndicator(mediaInfo: MediaInfo, modifier: Modifier = Modifier) {
@@ -125,8 +130,15 @@ class MainActivity : ComponentActivity() {
         setContent {
             SpotifyTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    
-                    var ipAddress by remember { mutableStateOf("") }
+
+                    val context = LocalContext.current
+
+                    var ipAddress by remember {
+                        mutableStateOf(
+                            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                                .getString(KEY_LAST_IP, "192.168") ?: "192.168"
+                        )
+                    }
                     val isConnected by WebSocketClient.isConnected.collectAsStateWithLifecycle()
                     val mediaInfo by WebSocketClient.mediaInfo.collectAsStateWithLifecycle()
                     val albumArtBase64 by WebSocketClient.albumArt.collectAsStateWithLifecycle()
@@ -165,7 +177,11 @@ class MainActivity : ComponentActivity() {
                             Spacer(modifier = Modifier.width(8.dp))
                             if (!isConnected) {
                                 Button(onClick = {
-                                    val wsUrl = "ws://$ipAddress:8765" 
+                                    val wsUrl = "ws://$ipAddress:8765"
+                                    val savedSuccessfully = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                                        .edit()
+                                        .putString(KEY_LAST_IP, ipAddress)
+                                        .commit()
                                     WebSocketClient.connect(wsUrl) 
                                 }, enabled = ipAddress.isNotBlank()) { 
                                     Text("Connect")
