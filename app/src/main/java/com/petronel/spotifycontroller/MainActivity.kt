@@ -143,7 +143,6 @@ fun AlbumArt(base64String: String?, modifier: Modifier = Modifier) {
 
 @Composable
 fun ExpandableActionPanel(
-    options: List<String>,
     modifier: Modifier = Modifier,
     panelHeightFraction: Float = 0.33f,
     collapsedHeight: Dp = 30.dp,
@@ -151,7 +150,7 @@ fun ExpandableActionPanel(
     collapsedLabel: String = "Audio Devices",
     horizontalMargin: Dp = 16.dp,
     bottomPadding: Dp = 150.dp,
-    onOptionSelected: (String) -> Unit = {}
+    onOptionSelected: (String) -> Unit = {Log.d("ExpandableActionPanel", "Option selected: $it")}
 ) {
     require(panelHeightFraction in 0f..1f) { "panelHeightFraction must be 0..1" }
     require(collapsedWidthFraction in 0f..1f) { "collapsedWidthFraction must be 0..1" }
@@ -199,6 +198,7 @@ fun ExpandableActionPanel(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
                 ) {
+                    WebSocketClient.requestAudioDevices()
                     if (!expanded) expanded = true
                 }
                 .zIndex(10f),
@@ -226,7 +226,7 @@ fun ExpandableActionPanel(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text("Choose an action", style = MaterialTheme.typography.titleMedium)
-                    options.forEach { option ->
+                    WebSocketClient.audioDevices.value.forEach { option ->
                         OptionRow(text = option) {
                             onOptionSelected(option)
                             expanded = false
@@ -372,7 +372,6 @@ class MainActivity : ComponentActivity() {
                     }
                     if(isConnected) {
                         ExpandableActionPanel(
-                            options = listOf("Option A", "Option B", "Option C", "Option D"),
                             bottomPadding = 180.dp
                         )
                     }

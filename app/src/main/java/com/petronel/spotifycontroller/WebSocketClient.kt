@@ -1,11 +1,10 @@
 package com.petronel.spotifycontroller
 
 import android.util.Log
-import androidx.activity.result.launch
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable.isActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,29 +30,41 @@ object WebSocketClient {
 
     private val _albumArt = MutableStateFlow<String?>(null)
     val albumArt: StateFlow<String?> = _albumArt
-    
+
+    private val _audioDevices = MutableStateFlow<List<String>>(emptyList())
+    val audioDevices: StateFlow<List<String>> = _audioDevices
+
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
     private val clientScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var pollingJob: Job? = null
+
+    private var requestedAudioDevices = false
+
     private val webSocketListener = object : WebSocketListener() {
         override fun onOpen(ws: WebSocket, response: Response) {
             webSocket = ws
             Log.d("WebSocket", "Connection Opened!")
-            _isConnected.value = true 
+            _isConnected.value = true
             startPolling()
         }
 
         override fun onMessage(ws: WebSocket, text: String) {
-            
+            if(requestedAudioDevices) {
+                Log.d("WebSocket", "Received audio devices: $text")
+                val devices = json.decodeFromString<List<String>>(text)
+                _audioDevices.value = devices
+            }
             try {
                 val newMediaInfo = json.decodeFromString<MediaInfo>(text)
                 _mediaInfo.value = newMediaInfo
             } catch (e: Exception) {
-                
-                Log.d("WebSocket", "Received non-JSON message, assuming Base64 album art.")
-                _albumArt.value = text
+
+                if(!requestedAudioDevices) {
+                    Log.d("WebSocket", "Received non-JSON message, assuming Base64 album art.")
+                    _albumArt.value = text
+                } else requestedAudioDevices = false
             }
         }
 
@@ -73,9 +84,7 @@ object WebSocketClient {
             
         }
     }
-    
 
-    
     fun connect(serverUrl: String) {
         
         disconnect()
@@ -97,6 +106,12 @@ object WebSocketClient {
     fun requestAlbumArt() {
         Log.d("WebSocket", "Sending command: get_thumbnail")
         send("get_thumbnail")
+    }
+
+    fun requestAudioDevices() {
+        Log.d("WebSocket", "Sending command: get_thumbnail")
+        send("get_audio_devices")
+        requestedAudioDevices = true
     }
 
     private fun startPolling() {

@@ -5,6 +5,44 @@ import json
 import websockets
 import socket
 import base64
+import pyaudiowpatch as pyaudio
+
+async def get_audio():
+    try:
+        def query_audio_devices():
+            devices = []
+            p = pyaudio.PyAudio()
+            try:
+                for i in range(p.get_device_count()):
+                    device_info = p.get_device_info_by_index(i)
+                    if device_info.get('maxOutputChannels', 0) > 0:
+                        devices.append(device_info)
+            finally:
+                p.terminate()
+            return devices
+        
+        loop = asyncio.get_event_loop()
+        devices = await loop.run_in_executor(None, query_audio_devices)
+
+        output_devices = []
+        seen_names = set()  
+        
+        for device in devices:
+            name = device['name'].strip()
+            if (name.endswith("()") or 
+                name.endswith("(Speaker)") or
+                (name.startswith("SPDIF Out") and "S/PDIF Out" in name) or
+                name.startswith("Output")):
+                continue
+                
+            if name not in seen_names and name.endswith(')'):
+                seen_names.add(name)
+                output_devices.append(name)
+        
+        return output_devices
+    except Exception as e:
+        print(f"Error in get_audio: {e}")
+        return []
 
 async def get_media_info():
     try:
@@ -150,6 +188,9 @@ async def handle_client(websocket):
                             await websocket.send("")
                         else:
                             await websocket.send(thumbnail)
+                    case "get_audio_devices":
+                        audio_devices = await get_audio()
+                        await websocket.send(json.dumps(audio_devices))
                     case "toggle_playback":
                         result = await toggle_media()
                         await websocket.send(json.dumps(result))       
