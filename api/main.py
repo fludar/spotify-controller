@@ -6,9 +6,19 @@ import websockets
 import socket
 import base64
 import pyaudiowpatch as pyaudio
+import time
+
+_audio_devices_cache = []
+_cache_timestamp = 0
+CACHE_DURATION = 10
 
 async def get_audio():
+    global _audio_devices_cache, _cache_timestamp
+    current_time = time.time()
     try:
+        if _audio_devices_cache and (current_time - _cache_timestamp) < CACHE_DURATION:
+            return _audio_devices_cache
+    
         import subprocess
         result = await asyncio.create_subprocess_exec(
             'powershell', '-NoProfile', '-NonInteractive', '-Command', 
@@ -42,6 +52,8 @@ async def get_audio():
                 "default": device["Default"]
             })
         
+        _audio_devices_cache = devices
+        _cache_timestamp = current_time
         return devices
         
     except Exception as e:
@@ -51,8 +63,6 @@ async def get_audio():
 async def set_audio(index):
     try:
         import subprocess
-        
-        # Use -NoProfile and -NonInteractive to speed up PowerShell startup
         result = await asyncio.create_subprocess_exec(
             'powershell', '-NoProfile', '-NonInteractive', '-Command', 
             f'Set-AudioDevice -Index {index}',
@@ -60,7 +70,6 @@ async def set_audio(index):
             stderr=asyncio.subprocess.PIPE
         )
         
-        # Add timeout to prevent hanging
         try:
             stdout, stderr = await asyncio.wait_for(result.communicate(), timeout=10.0)
         except asyncio.TimeoutError:
@@ -68,6 +77,8 @@ async def set_audio(index):
             return {"success": False, "message": "Command timed out"}
         
         if result.returncode == 0:
+            for device in _audio_devices_cache:
+                device["default"] = (device["index"] == index)
             return {"success": True, "message": f"Audio device set to index {index}"}
         else:
             error_msg = stderr.decode().strip() if stderr else "Unknown error"

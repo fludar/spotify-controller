@@ -67,6 +67,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.petronel.spotifycontroller.ui.theme.SpotifyTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.forEach
 import kotlinx.coroutines.isActive
 
 const val PREFS_NAME = "SpotifyControllerPrefs"
@@ -150,7 +151,14 @@ fun ExpandableActionPanel(
     collapsedLabel: String = "Audio Devices",
     horizontalMargin: Dp = 16.dp,
     bottomPadding: Dp = 150.dp,
-    onOptionSelected: (String) -> Unit = {Log.d("ExpandableActionPanel", "Option selected: $it"); WebSocketClient.send("set_audio_device $it") }
+    onOptionSelected: (String) -> Unit = {
+        Log.d("ExpandableActionPanel", "Option selected: $it")
+        WebSocketClient.send("set_audio_device $it")
+        val updatedDevices = WebSocketClient.audioDevices.value.map { device ->
+            device.copy(default = device.index == it.toInt())
+        }
+        WebSocketClient.updateAudioDevices(updatedDevices)
+    }
 ) {
     require(panelHeightFraction in 0f..1f) { "panelHeightFraction must be 0..1" }
     require(collapsedWidthFraction in 0f..1f) { "collapsedWidthFraction must be 0..1" }

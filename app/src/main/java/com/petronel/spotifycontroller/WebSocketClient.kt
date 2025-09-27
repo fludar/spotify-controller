@@ -118,6 +118,10 @@ object WebSocketClient {
         requestedAudioDevices = true
     }
 
+    fun updateAudioDevices(devices: List<AudioDevice>) {
+        _audioDevices.value = devices
+    }
+
     private fun startPolling() {
         pollingJob?.cancel() 
         pollingJob = clientScope.launch {
