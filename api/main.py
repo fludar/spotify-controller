@@ -5,7 +5,6 @@ import json
 import websockets
 import socket
 import base64
-import pyaudiowpatch as pyaudio
 import time
 
 _audio_devices_cache = []

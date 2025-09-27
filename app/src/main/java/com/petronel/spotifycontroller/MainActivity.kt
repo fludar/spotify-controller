@@ -233,7 +233,7 @@ fun ExpandableActionPanel(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("Choose an action", style = MaterialTheme.typography.titleMedium)
+                    Text("Choose a device", style = MaterialTheme.typography.titleMedium)
                     WebSocketClient.audioDevices.value.forEach { device ->
                         OptionRow(text = device.name, active = device.default) {
                             onOptionSelected(device.index.toString())
