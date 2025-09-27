@@ -65,7 +65,7 @@ This project consists of a Python server for the desktop and a Kotlin-based Andr
 
 ## 📸 Screenshot
 
-![screenshot](https://raw.githubusercontent.com/fludar/spotify-controller/main/demo.gif)
+![screenshot](https://raw.githubusercontent.com/fludar/spotify-controller/master/demo.gif)
 
 
 ## 🙏 Credits
