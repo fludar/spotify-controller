@@ -150,7 +150,7 @@ fun ExpandableActionPanel(
     collapsedLabel: String = "Audio Devices",
     horizontalMargin: Dp = 16.dp,
     bottomPadding: Dp = 150.dp,
-    onOptionSelected: (String) -> Unit = {Log.d("ExpandableActionPanel", "Option selected: $it")}
+    onOptionSelected: (String) -> Unit = {Log.d("ExpandableActionPanel", "Option selected: $it"); WebSocketClient.send("set_audio_device $it") }
 ) {
     require(panelHeightFraction in 0f..1f) { "panelHeightFraction must be 0..1" }
     require(collapsedWidthFraction in 0f..1f) { "collapsedWidthFraction must be 0..1" }
@@ -226,9 +226,9 @@ fun ExpandableActionPanel(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text("Choose an action", style = MaterialTheme.typography.titleMedium)
-                    WebSocketClient.audioDevices.value.forEach { option ->
-                        OptionRow(text = option) {
-                            onOptionSelected(option)
+                    WebSocketClient.audioDevices.value.forEach { device ->
+                        OptionRow(text = device.name, active = device.default) {
+                            onOptionSelected(device.index.toString())
                             expanded = false
                         }
                     }
@@ -241,6 +241,7 @@ fun ExpandableActionPanel(
 @Composable
 private fun OptionRow(
     text: String,
+    active: Boolean,
     onClick: () -> Unit
 ) {
     Surface(
@@ -249,7 +250,7 @@ private fun OptionRow(
             .heightIn(min = 44.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() },
-        color = MaterialTheme.colorScheme.secondaryContainer,
+        color = if(active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer
     ) {
         Box(

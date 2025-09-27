@@ -9,40 +9,73 @@ import pyaudiowpatch as pyaudio
 
 async def get_audio():
     try:
-        def query_audio_devices():
-            devices = []
-            p = pyaudio.PyAudio()
-            try:
-                for i in range(p.get_device_count()):
-                    device_info = p.get_device_info_by_index(i)
-                    if device_info.get('maxOutputChannels', 0) > 0:
-                        devices.append(device_info)
-            finally:
-                p.terminate()
-            return devices
+        import subprocess
+        result = await asyncio.create_subprocess_exec(
+            'powershell', '-NoProfile', '-NonInteractive', '-Command', 
+            'Get-AudioDevice -List | Where-Object {$_.Type -eq "Playback"} | Select-Object Index, Name, Default | ConvertTo-Json',
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
         
-        loop = asyncio.get_event_loop()
-        devices = await loop.run_in_executor(None, query_audio_devices)
+        try:
+            stdout, stderr = await asyncio.wait_for(result.communicate(), timeout=10.0)
+        except asyncio.TimeoutError:
+            result.kill()
+            return []
+        
+        if result.returncode != 0:
+            print(f"PowerShell error: {stderr.decode()}")
+            return []
+        
+        output = stdout.decode().strip()
+        import json as py_json
+        devices_data = py_json.loads(output)
+        
+        if isinstance(devices_data, dict):
+            devices_data = [devices_data]
 
-        output_devices = []
-        seen_names = set()  
+        devices = []
+        for device in devices_data:
+            devices.append({
+                "index": device["Index"],
+                "name": device["Name"],
+                "default": device["Default"]
+            })
         
-        for device in devices:
-            name = device['name'].strip()
-            if (name.endswith("()") or 
-                name.endswith("(Speaker)") or
-                (name.startswith("SPDIF Out") and "S/PDIF Out" in name) or
-                name.startswith("Output")):
-                continue
-                
-            if name not in seen_names and name.endswith(')'):
-                seen_names.add(name)
-                output_devices.append(name)
+        return devices
         
-        return output_devices
     except Exception as e:
         print(f"Error in get_audio: {e}")
         return []
+
+async def set_audio(index):
+    try:
+        import subprocess
+        
+        # Use -NoProfile and -NonInteractive to speed up PowerShell startup
+        result = await asyncio.create_subprocess_exec(
+            'powershell', '-NoProfile', '-NonInteractive', '-Command', 
+            f'Set-AudioDevice -Index {index}',
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        # Add timeout to prevent hanging
+        try:
+            stdout, stderr = await asyncio.wait_for(result.communicate(), timeout=10.0)
+        except asyncio.TimeoutError:
+            result.kill()
+            return {"success": False, "message": "Command timed out"}
+        
+        if result.returncode == 0:
+            return {"success": True, "message": f"Audio device set to index {index}"}
+        else:
+            error_msg = stderr.decode().strip() if stderr else "Unknown error"
+            return {"success": False, "message": f"Failed to set audio device: {error_msg}"}
+            
+    except Exception as e:
+        print(f"Error setting audio device: {e}")
+        return {"success": False, "message": f"Error: {str(e)}"}
 
 async def get_media_info():
     try:
@@ -178,30 +211,38 @@ async def previous_track():
 async def handle_client(websocket):
     try:
         async for message in websocket:
-            match message:
-                    case "get_media":
-                        media_info = await get_media_info()
-                        await websocket.send(json.dumps(media_info))
-                    case "get_thumbnail":
-                        thumbnail = await get_thumbnail()
-                        if thumbnail is None:
-                            await websocket.send("")
-                        else:
-                            await websocket.send(thumbnail)
-                    case "get_audio_devices":
-                        audio_devices = await get_audio()
-                        await websocket.send(json.dumps(audio_devices))
-                    case "toggle_playback":
-                        result = await toggle_media()
-                        await websocket.send(json.dumps(result))       
-                    case "next":
-                        next = await next_track()
-                        await websocket.send(json.dumps(next))
-                    case "prev":
-                        prev = await previous_track()
-                        await websocket.send(json.dumps(prev))
-                    case _:  # Default case
-                        await websocket.send(json.dumps({"error": "Unknown command"}))
+            if message.startswith("set_audio_device "):
+                try:
+                    index = int(message.split(" ")[1])
+                    result = await set_audio(index)
+                    await websocket.send(json.dumps(result))
+                except (IndexError, ValueError):
+                    await websocket.send(json.dumps({"success": False, "message": "Invalid device index"}))
+            else:
+                match message:
+                        case "get_media":
+                            media_info = await get_media_info()
+                            await websocket.send(json.dumps(media_info))
+                        case "get_thumbnail":
+                            thumbnail = await get_thumbnail()
+                            if thumbnail is None:
+                                await websocket.send("")
+                            else:
+                                await websocket.send(thumbnail)
+                        case "get_audio_devices":
+                            audio_devices = await get_audio()
+                            await websocket.send(json.dumps(audio_devices))
+                        case "toggle_playback":
+                            result = await toggle_media()
+                            await websocket.send(json.dumps(result))       
+                        case "next":
+                            next = await next_track()
+                            await websocket.send(json.dumps(next))
+                        case "prev":
+                            prev = await previous_track()
+                            await websocket.send(json.dumps(prev))
+                        case _:  # Default case
+                            await websocket.send(json.dumps({"error": "Unknown command"}))
     except websockets.exceptions.ConnectionClosed:
         pass
 

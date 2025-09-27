@@ -31,8 +31,8 @@ object WebSocketClient {
     private val _albumArt = MutableStateFlow<String?>(null)
     val albumArt: StateFlow<String?> = _albumArt
 
-    private val _audioDevices = MutableStateFlow<List<String>>(emptyList())
-    val audioDevices: StateFlow<List<String>> = _audioDevices
+    private val _audioDevices = MutableStateFlow<List<AudioDevice>>(emptyList())
+    val audioDevices: StateFlow<List<AudioDevice>> = _audioDevices
 
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
@@ -53,18 +53,22 @@ object WebSocketClient {
         override fun onMessage(ws: WebSocket, text: String) {
             if(requestedAudioDevices) {
                 Log.d("WebSocket", "Received audio devices: $text")
-                val devices = json.decodeFromString<List<String>>(text)
-                _audioDevices.value = devices
-            }
-            try {
-                val newMediaInfo = json.decodeFromString<MediaInfo>(text)
-                _mediaInfo.value = newMediaInfo
-            } catch (e: Exception) {
-
-                if(!requestedAudioDevices) {
+                try {
+                    val devices = json.decodeFromString<List<AudioDevice>>(text)
+                    _audioDevices.value = devices
+                    requestedAudioDevices = false
+                } catch (e: Exception) {
+                    Log.e("WebSocket", "Failed to parse audio devices: ${e.message}")
+                    requestedAudioDevices = false
+                }
+            } else {
+                try {
+                    val newMediaInfo = json.decodeFromString<MediaInfo>(text)
+                    _mediaInfo.value = newMediaInfo
+                } catch (e: Exception) {
                     Log.d("WebSocket", "Received non-JSON message, assuming Base64 album art.")
                     _albumArt.value = text
-                } else requestedAudioDevices = false
+                }
             }
         }
 

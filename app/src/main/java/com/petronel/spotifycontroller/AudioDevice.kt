@@ -1,4 +1,10 @@
 package com.petronel.spotifycontroller
 
-class AudioDevice {
-}
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class AudioDevice(
+    val index: Int,
+    val name: String,
+    val default: Boolean
+)
