@@ -17,6 +17,8 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 
 
 object WebSocketClient {
@@ -40,8 +42,6 @@ object WebSocketClient {
     private val clientScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var pollingJob: Job? = null
 
-    private var requestedAudioDevices = false
-
     private val webSocketListener = object : WebSocketListener() {
         override fun onOpen(ws: WebSocket, response: Response) {
             webSocket = ws
@@ -51,24 +51,31 @@ object WebSocketClient {
         }
 
         override fun onMessage(ws: WebSocket, text: String) {
-            if(requestedAudioDevices) {
-                Log.d("WebSocket", "Received audio devices: $text")
-                try {
+            try {
+                val element = json.parseToJsonElement(text)
+
+                if (element is JsonArray) {
                     val devices = json.decodeFromString<List<AudioDevice>>(text)
                     _audioDevices.value = devices
-                    requestedAudioDevices = false
-                } catch (e: Exception) {
-                    Log.e("WebSocket", "Failed to parse audio devices: ${e.message}")
-                    requestedAudioDevices = false
+                    return
                 }
-            } else {
-                try {
+
+                if (element is JsonObject && element["is_playing"] != null) {
                     val newMediaInfo = json.decodeFromString<MediaInfo>(text)
                     _mediaInfo.value = newMediaInfo
-                } catch (e: Exception) {
-                    Log.d("WebSocket", "Received non-JSON message, assuming Base64 album art.")
-                    _albumArt.value = text
+                    return
                 }
+
+                if (element is JsonObject) {
+                    if (element["success"] != null || element["error"] != null || element["message"] != null) {
+                        Log.d("WebSocket", "Command response: $text")
+                        return
+                    }
+                }
+
+                _albumArt.value = text
+            } catch (_: Exception) {
+                _albumArt.value = text
             }
         }
 
@@ -113,9 +120,8 @@ object WebSocketClient {
     }
 
     fun requestAudioDevices() {
-        Log.d("WebSocket", "Sending command: get_thumbnail")
+        Log.d("WebSocket", "Sending command: get_audio_devices")
         send("get_audio_devices")
-        requestedAudioDevices = true
     }
 
     fun updateAudioDevices(devices: List<AudioDevice>) {

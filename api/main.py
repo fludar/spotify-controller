@@ -5,84 +5,66 @@ import json
 import websockets
 import socket
 import base64
-import time
-
-_audio_devices_cache = []
-_cache_timestamp = 0
-CACHE_DURATION = 10
 
 async def get_audio():
-    global _audio_devices_cache, _cache_timestamp
-    current_time = time.time()
     try:
-        if _audio_devices_cache and (current_time - _cache_timestamp) < CACHE_DURATION:
-            return _audio_devices_cache
-    
-        import subprocess
         result = await asyncio.create_subprocess_exec(
-            'powershell', '-NoProfile', '-NonInteractive', '-Command', 
+            'powershell', '-NoProfile', '-NonInteractive', '-Command',
             'Get-AudioDevice -List | Where-Object {$_.Type -eq "Playback"} | Select-Object Index, Name, Default | ConvertTo-Json',
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        
+
         try:
             stdout, stderr = await asyncio.wait_for(result.communicate(), timeout=10.0)
         except asyncio.TimeoutError:
             result.kill()
             return []
-        
+
         if result.returncode != 0:
             print(f"PowerShell error: {stderr.decode()}")
             return []
-        
+
         output = stdout.decode().strip()
-        import json as py_json
-        devices_data = py_json.loads(output)
-        
+        devices_data = json.loads(output) if output else []
+
         if isinstance(devices_data, dict):
             devices_data = [devices_data]
 
-        devices = []
-        for device in devices_data:
-            devices.append({
+        return [
+            {
                 "index": device["Index"],
                 "name": device["Name"],
                 "default": device["Default"]
-            })
-        
-        _audio_devices_cache = devices
-        _cache_timestamp = current_time
-        return devices
-        
+            }
+            for device in devices_data
+        ]
+
     except Exception as e:
         print(f"Error in get_audio: {e}")
         return []
 
 async def set_audio(index):
     try:
-        import subprocess
         result = await asyncio.create_subprocess_exec(
-            'powershell', '-NoProfile', '-NonInteractive', '-Command', 
+            'powershell', '-NoProfile', '-NonInteractive', '-Command',
             f'Set-AudioDevice -Index {index}',
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        
+
         try:
             stdout, stderr = await asyncio.wait_for(result.communicate(), timeout=10.0)
         except asyncio.TimeoutError:
             result.kill()
             return {"success": False, "message": "Command timed out"}
-        
+
         if result.returncode == 0:
-            for device in _audio_devices_cache:
-                device["default"] = (device["index"] == index)
             return {"success": True, "message": f"Audio device set to index {index}"}
         else:
             error_msg = stderr.decode().strip() if stderr else "Unknown error"
             return {"success": False, "message": f"Failed to set audio device: {error_msg}"}
-            
+
     except Exception as e:
         print(f"Error setting audio device: {e}")
         return {"success": False, "message": f"Error: {str(e)}"}
@@ -241,6 +223,7 @@ async def handle_client(websocket):
                                 await websocket.send(thumbnail)
                         case "get_audio_devices":
                             audio_devices = await get_audio()
+                            print(audio_devices)
                             await websocket.send(json.dumps(audio_devices))
                         case "toggle_playback":
                             result = await toggle_media()
