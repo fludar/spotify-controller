@@ -223,7 +223,6 @@ async def handle_client(websocket):
                                 await websocket.send(thumbnail)
                         case "get_audio_devices":
                             audio_devices = await get_audio()
-                            print(audio_devices)
                             await websocket.send(json.dumps(audio_devices))
                         case "toggle_playback":
                             result = await toggle_media()
